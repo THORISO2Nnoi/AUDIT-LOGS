@@ -1,0 +1,8 @@
+[
+  { "tool": "Fund Screen Tool", "brokers": 71, "actions": 412, "sessions": 120, "avg": "3.4" },
+  { "tool": "X-Ray Report Tool", "brokers": 64, "actions": 356, "sessions": 98, "avg": "3.6" },
+  { "tool": "Portfolio Planner Tool", "brokers": 48, "actions": 298, "sessions": 84, "avg": "3.5" },
+  { "tool": "Investment Compare Tool", "brokers": 42, "actions": 244, "sessions": 72, "avg": "3.4" },
+  { "tool": "Portfolio Compare Tool", "brokers": 37, "actions": 198, "sessions": 58, "avg": "3.4" },
+  { "tool": "Standalone Chart Tool", "brokers": 29, "actions": 122, "sessions": 40, "avg": "3.0" }
+]

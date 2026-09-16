@@ -1,0 +1,10 @@
+[
+  { "date": "2025-01-31", "ab_number": "AB12345", "login": "09:14:22", "logout": "10:02:14", "duration": "47m 52s", "ip": "10.20.3.14", "status": "Success" },
+  { "date": "2025-01-31", "ab_number": "AB12346", "login": "10:02:11", "logout": "11:31:09", "duration": "1h 28m", "ip": "10.20.3.51", "status": "Success" },
+  { "date": "2025-01-31", "ab_number": "AB12347", "login": "11:11:02", "logout": "12:00:00", "duration": "48m 58s", "ip": "10.20.4.88", "status": "Success" },
+  { "date": "2025-01-31", "ab_number": "AB12348", "login": "12:31:55", "logout": "13:45:02", "duration": "1h 13m", "ip": "10.20.5.12", "status": "Success" },
+  { "date": "2025-01-31", "ab_number": "—", "login": "12:00:01", "logout": "—", "duration": "—", "ip": "203.0.113.9", "status": "Failure" },
+  { "date": "2025-01-31", "ab_number": "AB12346", "login": "14:22:31", "logout": "15:01:10", "duration": "38m 39s", "ip": "10.20.3.51", "status": "Success" },
+  { "date": "2025-01-30", "ab_number": "AB12345", "login": "09:02:11", "logout": "10:44:00", "duration": "1h 41m", "ip": "10.20.3.14", "status": "Success" },
+  { "date": "2025-01-30", "ab_number": "AB12349", "login": "15:22:00", "logout": "16:10:45", "duration": "48m 45s", "ip": "10.20.6.19", "status": "Success" }
+]

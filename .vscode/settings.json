@@ -1,0 +1,7 @@
+{
+  "editor.formatOnSave": true,
+  "liveServer.settings.port": 5500,
+  "files.exclude": {
+    "**/.DS_Store": true
+  }
+}

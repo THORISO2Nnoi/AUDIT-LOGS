@@ -1,0 +1,10 @@
+[
+  { "timestamp": "2025-01-31 12:00:01", "severity": "High", "type": "Failed Login", "source": "Unknown", "ip": "203.0.113.9", "description": "5 failed attempts in 2 minutes on same credential", "status": "Open" },
+  { "timestamp": "2025-01-31 13:12:44", "severity": "Critical", "type": "Bulk Download", "source": "AB12345 · Rahul", "ip": "10.20.3.14", "description": "52 reports downloaded within 10 minutes", "status": "Open" },
+  { "timestamp": "2025-01-31 11:45:09", "severity": "Medium", "type": "Unusual Login Time", "source": "AB12347 · Anil", "ip": "10.20.4.88", "description": "Login at 03:12 AM (outside normal hours)", "status": "Resolved" },
+  { "timestamp": "2025-01-31 10:22:31", "severity": "Low", "type": "Multiple Sessions", "source": "AB12346 · Priya", "ip": "10.20.3.51", "description": "2 active sessions detected simultaneously", "status": "Resolved" },
+  { "timestamp": "2025-01-30 22:14:00", "severity": "High", "type": "New IP Address", "source": "AB12348 · Sneha", "ip": "203.0.113.55", "description": "Login from new location (previous IP: 10.20.5.12)", "status": "Open" },
+  { "timestamp": "2025-01-30 18:01:12", "severity": "Medium", "type": "Failed Login", "source": "Unknown", "ip": "198.51.100.7", "description": "3 failed attempts then success", "status": "Resolved" },
+  { "timestamp": "2025-01-30 14:55:00", "severity": "Low", "type": "Password Change", "source": "AB12349 · Vikram", "ip": "10.20.6.19", "description": "Password changed by broker", "status": "Resolved" },
+  { "timestamp": "2025-01-30 09:00:22", "severity": "Critical", "type": "Config Change", "source": "admin@company", "ip": "10.10.0.4", "description": "RBAC permissions modified for 3 brokers", "status": "Open" }
+]

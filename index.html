@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Broker Platform — Login</title>
+  <link rel="stylesheet" href="css/login.css" />
+</head>
+<body>
+
+  <div class="login-wrap">
+    <div class="login-card">
+
+      <div class="brand">
+        <div class="brand-icon">🛡️</div>
+        <h1>Broker Platform</h1>
+        <p>Sign in with your AB Number</p>
+      </div>
+
+      <form id="loginForm" autocomplete="off">
+        <div class="field">
+          <label for="abNumber">AB Number</label>
+          <input
+            type="text"
+            id="abNumber"
+            name="abNumber"
+            placeholder="AB12345"
+            pattern="^AB\d{5,7}$"
+            maxlength="9"
+            required
+            autofocus
+          />
+          <small class="hint">Format: AB followed by 5–7 digits</small>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="password-wrap">
+            <input
+              type="password"
+              id="password"
+              name="password"
+              placeholder="Enter your password"
+              minlength="8"
+              required
+            />
+            <button type="button" id="togglePwd" class="toggle-pwd" aria-label="Show password">👁</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <label class="remember">
+            <input type="checkbox" id="remember" />
+            <span>Remember my AB Number</span>
+          </label>
+          <a href="#" class="forgot">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn-primary" id="loginBtn">
+          Sign In
+        </button>
+
+        <div id="errorBox" class="error-box" role="alert"></div>
+      </form>
+
+      <div class="footer">
+        <p>Every login attempt is recorded in the audit log.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="js/login.js"></script>
+</body>
+</html>

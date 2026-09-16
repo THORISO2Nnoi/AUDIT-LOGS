@@ -1,0 +1,12 @@
+[
+  { "timestamp": "2025-01-31 09:14:22", "ab_number": "AB12345", "ip": "10.20.3.14", "tool": "Fund Screen Tool", "action": "Login", "details": "Successful login", "status": "Success" },
+  { "timestamp": "2025-01-31 09:15:03", "ab_number": "AB12345", "ip": "10.20.3.14", "tool": "Fund Screen Tool", "action": "View", "details": "Screened 42 funds (Equity > 5Y)", "status": "Success" },
+  { "timestamp": "2025-01-31 09:18:47", "ab_number": "AB12345", "ip": "10.20.3.14", "tool": "X-Ray Report Tool", "action": "Generate", "details": "X-Ray report for Portfolio #P-2201", "status": "Success" },
+  { "timestamp": "2025-01-31 09:19:12", "ab_number": "AB12345", "ip": "10.20.3.14", "tool": "X-Ray Report Tool", "action": "Download", "details": "X-Ray_Report_P-2201.pdf", "status": "Success" },
+  { "timestamp": "2025-01-31 10:02:11", "ab_number": "AB12346", "ip": "10.20.3.51", "tool": "Investment Compare Tool", "action": "View", "details": "Compared 3 mutual funds", "status": "Success" },
+  { "timestamp": "2025-01-31 10:05:44", "ab_number": "AB12346", "ip": "10.20.3.51", "tool": "Portfolio Compare Tool", "action": "Download", "details": "Portfolio_Compare_Q1.xlsx", "status": "Success" },
+  { "timestamp": "2025-01-31 11:11:02", "ab_number": "AB12347", "ip": "10.20.4.88", "tool": "Portfolio Planner Tool", "action": "Generate", "details": "Planner output for Goal #G-77", "status": "Success" },
+  { "timestamp": "2025-01-31 11:14:39", "ab_number": "AB12347", "ip": "10.20.4.88", "tool": "Standalone Chart Tool", "action": "View", "details": "Nifty 50 – 5Y chart", "status": "Success" },
+  { "timestamp": "2025-01-31 12:00:01", "ab_number": "—", "ip": "203.0.113.9", "tool": "—", "action": "Failed Login", "details": "Invalid credentials", "status": "Failure" },
+  { "timestamp": "2025-01-31 12:31:55", "ab_number": "AB12348", "ip": "10.20.5.12", "tool": "X-Ray Report Tool", "action": "Download", "details": "XRay_Portfolio_P-3300.pdf", "status": "Success" }
+]

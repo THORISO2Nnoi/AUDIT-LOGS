@@ -1,0 +1,8 @@
+[
+  { "ab_number": "AB12345", "logins": 24, "actions": 312, "downloads": 48, "top_tool": "X-Ray Report Tool", "last_activity": "2025-01-31 14:20" },
+  { "ab_number": "AB12346", "logins": 19, "actions": 268, "downloads": 36, "top_tool": "Portfolio Compare Tool", "last_activity": "2025-01-31 15:11" },
+  { "ab_number": "AB12347", "logins": 16, "actions": 210, "downloads": 29, "top_tool": "Portfolio Planner Tool", "last_activity": "2025-01-31 15:45" },
+  { "ab_number": "AB12348", "logins": 12, "actions": 187, "downloads": 22, "top_tool": "Fund Screen Tool", "last_activity": "2025-01-31 15:11" },
+  { "ab_number": "AB12349", "logins": 9, "actions": 134, "downloads": 15, "top_tool": "Investment Compare Tool", "last_activity": "2025-01-30 16:10" },
+  { "ab_number": "AB12350", "logins": 7, "actions": 98, "downloads": 11, "top_tool": "Standalone Chart Tool", "last_activity": "2025-01-30 12:44" }
+]

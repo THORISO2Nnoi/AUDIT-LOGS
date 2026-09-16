@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "ritwickdey.liveserver",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-vscode.live-server"
+  ]
+}

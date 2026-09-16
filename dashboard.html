@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Audit Log Console</title>
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+
+<header>
+  <h1>🛡️ Broker Platform — Audit Log Console</h1>
+  <div class="user">
+    <span id="userLabel">Admin</span>
+    <button id="logoutBtn" class="logout">Logout</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <aside>
+    <h3>Audit Logs</h3>
+    <a class="active" data-view="activity">📋 Activity Log</a>
+    <a data-view="logins">🔐 Login Activity</a>
+    <a data-view="downloads">📥 Report Downloads</a>
+    <a data-view="security">🚨 Security Events</a>
+
+    <h3>Analytics</h3>
+    <a data-view="broker">👤 Broker Summary</a>
+    <a data-view="tools">🧰 Tool Usage</a>
+
+    <h3>Admin</h3>
+    <a data-view="export">📤 Export Logs</a>
+  </aside>
+
+  <main>
+
+    <!-- ACTIVITY -->
+    <section class="view active" id="view-activity">
+      <div class="topbar">
+        <div>
+          <h2>Activity Log</h2>
+          <p class="sub">All broker actions across every tool in the platform.</p>
+        </div>
+        <div class="actions">
+          <button class="secondary" onclick="alert('Export CSV (preview).')">Export CSV</button>
+          <button onclick="alert('Export PDF (preview).')">Export PDF</button>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="label">Total Actions Today</div><div class="value">1,842</div><div class="delta up">▲ 8%</div></div>
+        <div class="kpi"><div class="label">Active Brokers</div><div class="value">87</div><div class="delta up">▲ 4 new</div></div>
+        <div class="kpi"><div class="label">Tool Sessions</div><div class="value">312</div><div class="delta up">▲ 5%</div></div>
+        <div class="kpi"><div class="label">Reports Generated</div><div class="value">196</div><div class="delta down">▼ 2%</div></div>
+      </div>
+
+      <div class="filters">
+        <div><label>From</label><input type="date" id="fFrom"></div>
+        <div><label>To</label><input type="date" id="fTo"></div>
+        <div><label>Broker</label><select id="fBroker"><option value="">All Brokers</option></select></div>
+        <div><label>Tool</label><select id="fTool"><option value="">All Tools</option></select></div>
+        <div><label>Action</label><select id="fAction"><option value="">All Actions</option></select></div>
+        <div><label>Search</label><input type="text" id="fSearch" placeholder="Search details…"></div>
+        <div><label>&nbsp;</label><button class="apply" id="applyFilters">Apply</button></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th><th>AB Number</th><th>Broker</th>
+              <th>IP</th><th>Tool</th><th>Action</th>
+              <th>Details</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-activity"></tbody>
+        </table>
+        <div class="pagination">
+          <div id="rowInfoActivity">—</div>
+          <div class="pages">
+            <button>Prev</button><button class="active">1</button>
+            <button>2</button><button>3</button><button>Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOGINS -->
+    <section class="view" id="view-logins">
+      <div class="topbar">
+        <div><h2>Login Activity</h2><p class="sub">Daily logins, sessions, failed attempts.</p></div>
+        <div class="actions"><button class="secondary">Export CSV</button></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="label">Logins Today</div><div class="value">248</div><div class="delta up">▲ 12%</div></div>
+        <div class="kpi"><div class="label">Unique Brokers</div><div class="value">87</div><div class="delta up">▲ 4</div></div>
+        <div class="kpi"><div class="label">Failed Logins</div><div class="value">6</div><div class="delta down">▼ 2</div></div>
+        <div class="kpi"><div class="label">Avg Session</div><div class="value">42m</div><div class="delta up">▲ 3m</div></div>
+      </div>
+      <div class="chart">
+        <h4>Logins per Day (Last 7 Days)</h4>
+        <div class="bars" id="chart-logins"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>AB Number</th><th>Broker</th>
+              <th>Login</th><th>Logout</th><th>Duration</th>
+              <th>IP</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-logins"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DOWNLOADS -->
+    <section class="view" id="view-downloads">
+      <div class="topbar">
+        <div><h2>Report Downloads</h2><p class="sub">Track every report download by AB Number.</p></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="label">Downloads Today</div><div class="value">412</div><div class="delta down">▼ 3%</div></div>
+        <div class="kpi"><div class="label">Unique Brokers</div><div class="value">64</div><div class="delta up">▲ 6</div></div>
+        <div class="kpi"><div class="label">PDF</div><div class="value">289</div><div class="delta up">▲ 4%</div></div>
+        <div class="kpi"><div class="label">Excel</div><div class="value">123</div><div class="delta down">▼ 2%</div></div>
+      </div>
+      <div class="chart">
+        <h4>Most Downloaded Reports</h4>
+        <div id="chart-downloads"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th><th>AB Number</th><th>Broker</th>
+              <th>Report</th><th>Tool</th><th>Format</th>
+              <th>Size</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-downloads"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECURITY -->
+    <section class="view" id="view-security">
+      <div class="topbar">
+        <div><h2>Security Events</h2><p class="sub">Failed logins, suspicious activity, alerts.</p></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="label">Critical</div><div class="value" style="color:#dc2626">2</div></div>
+        <div class="kpi"><div class="label">High</div><div class="value" style="color:#d97706">5</div></div>
+        <div class="kpi"><div class="label">Medium</div><div class="value" style="color:#ca8a04">12</div></div>
+        <div class="kpi"><div class="label">Resolved (7d)</div><div class="value" style="color:#059669">38</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th><th>Severity</th><th>Event</th>
+              <th>Source</th><th>IP</th><th>Description</th>
+              <th>Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-security"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- BROKER SUMMARY -->
+    <section class="view" id="view-broker">
+      <div class="topbar">
+        <div><h2>Broker Summary</h2><p class="sub">Per-broker activity and usage.</p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>AB Number</th><th>Broker</th><th>Logins</th>
+              <th>Actions</th><th>Downloads</th>
+              <th>Top Tool</th><th>Last Activity</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-broker"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TOOLS -->
+    <section class="view" id="view-tools">
+      <div class="topbar">
+        <div><h2>Tool Usage Analytics</h2><p class="sub">How brokers engage with each tool.</p></div>
+      </div>
+      <div class="chart">
+        <h4>Total Actions per Tool</h4>
+        <div id="chart-tools"></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tool</th><th>Unique Brokers</th><th>Actions</th>
+              <th>Sessions</th><th>Avg Actions / Session</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-tools"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- EXPORT -->
+    <section class="view" id="view-export">
+      <div class="topbar">
+        <div><h2>Export Logs</h2><p class="sub">Download audit reports for compliance.</p></div>
+      </div>
+      <div class="export-grid">
+
+        <div class="card">
+          <h4>📄 Quick Export</h4>
+          <p>Export current view with active filters.</p>
+          <select>
+            <option>Current view</option>
+            <option>Activity Log</option>
+            <option>Login Activity</option>
+            <option>Report Downloads</option>
+            <option>Security Events</option>
+          </select>
+          <select>
+            <option>Format: CSV</option>
+            <option>Format: Excel</option>
+            <option>Format: PDF</option>
+          </select>
+          <button onclick="alert('Export started (preview).')">Export Now</button>
+        </div>
+
+        <div class="card">
+          <h4>⚙️ Custom Export</h4>
+          <p>Select a date range and categories.</p>
+          <input type="date" value="2025-01-01">
+          <input type="date" value="2025-01-31">
+          <div class="checkbox-row"><input type="checkbox" checked> Logins</div>
+          <div class="checkbox-row"><input type="checkbox" checked> Tool Actions</div>
+          <div class="checkbox-row"><input type="checkbox" checked> Downloads</div>
+          <div class="checkbox-row"><input type="checkbox"> Security Events</div>
+          <button onclick="alert('Custom export queued.')">Generate</button>
+        </div>
+
+        <div class="card">
+          <h4>📧 Scheduled Reports</h4>
+          <p>Email audit summaries on a schedule.</p>
+          <select>
+            <option>Daily</option><option>Weekly</option><option>Monthly</option>
+          </select>
+          <input type="email" placeholder="Recipient email" value="compliance@company.com">
+          <button onclick="alert('Schedule saved (preview).')">Save Schedule</button>
+        </div>
+
+      </div>
+
+      <div class="chart" style="margin-top:18px;">
+        <h4>Recent Exports (Audit of Exports)</h4>
+        <div class="table-wrap" style="border:none; margin:0;">
+          <table>
+            <thead>
+              <tr>
+                <th>Timestamp</th><th>Exported By</th><th>View</th>
+                <th>Format</th><th>Rows</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbl-exports"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="js/dashboard.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/filters.js"></script>
+</body>
+</html>
