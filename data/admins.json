@@ -1,0 +1,14 @@
+{
+  "ADM001": {
+    "name": "System Administrator",
+    "email": "admin@company.com",
+    "role": "admin",
+    "department": "Security & Compliance"
+  },
+  "ADM002": {
+    "name": "Audit Viewer",
+    "email": "audit@company.com",
+    "role": "audit.viewer",
+    "department": "Internal Audit"
+  }
+}

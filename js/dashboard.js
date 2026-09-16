@@ -207,15 +207,25 @@ function switchView(view){
   if (el) el.classList.add("active");
 }
 
-/* ---------- Session / Logout ---------- */
+/* ---------- Session / Logout & RBAC Protection ---------- */
 function checkSession(){
+  const role = localStorage.getItem("session_role");
   const ab = localStorage.getItem("session_ab");
-  if (!ab) {
-    window.location.href = "index.html";
-    return;
+
+  // Enforce Admin Access (role must be admin or audit.viewer)
+  if (!ab || (role !== "admin" && role !== "audit.viewer")) {
+    console.warn("🚫 Access Denied: Unauthorized role attempting dashboard access:", role);
+    localStorage.removeItem("session_role");
+    localStorage.removeItem("session_ab");
+    localStorage.removeItem("session_name");
+    localStorage.removeItem("session_email");
+    window.location.href = "index.html?error=unauthorized";
+    return false;
   }
-  const name = localStorage.getItem("session_name") || brokerName(ab);
-  document.getElementById("userLabel").textContent = `${ab} · ${name}`;
+
+  const name = localStorage.getItem("session_name") || "System Administrator";
+  document.getElementById("userLabel").textContent = `👑 Admin: ${name} (${ab})`;
+  return true;
 }
 
 function setupLogout(){
@@ -223,21 +233,25 @@ function setupLogout(){
     // Log the logout event
     const logs = JSON.parse(localStorage.getItem("audit_login_logs") || "[]");
     logs.push({
-      ab_number: localStorage.getItem("session_ab"),
+      user_id: localStorage.getItem("session_ab"),
+      user_name: localStorage.getItem("session_name"),
+      role: localStorage.getItem("session_role"),
       status: "Logout",
       timestamp: new Date().toISOString()
     });
     localStorage.setItem("audit_login_logs", JSON.stringify(logs));
 
     localStorage.removeItem("session_ab");
+    localStorage.removeItem("session_role");
     localStorage.removeItem("session_name");
+    localStorage.removeItem("session_email");
     window.location.href = "index.html";
   });
 }
 
 /* ---------- Init ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  checkSession();
+  if (!checkSession()) return;
   await loadAllData();
   populateFilters();
 

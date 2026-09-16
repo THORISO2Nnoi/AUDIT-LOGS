@@ -1,24 +1,29 @@
-# Authentication Spec — AB Number + Password
+# Authentication Spec — Role-Based Access Control (RBAC)
 
-## Login Field
-- **AB Number** — unique per broker, format `^AB\d{5,7}$`
+## Roles & Permissions
 
-## Password Rules
-- Min 8 chars
-- 1 uppercase, 1 lowercase, 1 digit, 1 special
+| Role | Access Level | Console Access |
+|---|---|---|
+| `admin` | Full Administrator | ✅ Can access Audit Log Console (`dashboard.html`) |
+| `audit.viewer` | Compliance Auditor | ✅ Can access Audit Log Console (`dashboard.html`) |
+| `broker` | Broker Platform User | ❌ **DENIED** access to Audit Log Console |
+
+## Admin Credentials (Audit Console Access)
+- **Admin ID**: `ADM001` or `admin@company.com`
+- **Password**: `Admin@1234`
+- **Session Role**: `admin`
+
+## Broker Access Restriction Policy
+- **Broker Identifier**: `AB Number` (format `^AB\d{5,7}$`, e.g. `AB12345`)
+- **Access Rule**: Brokers are strictly prohibited from viewing audit logs across the platform.
+- **Enforcement**:
+  1. Entering a Broker AB Number on the Audit Console login will trigger an immediate **RBAC Access Denied** error (`403 Forbidden`).
+  2. Direct navigation to `dashboard.html` without `session_role === 'admin'` or `'audit.viewer'` is blocked and redirected to `index.html?error=unauthorized`.
+  3. Every unauthorized access attempt by a Broker is logged to the security audit trail.
 
 ## Lockout Policy
-- 5 failed attempts → 15-minute lock
+- 5 failed attempts → 15-minute lock.
 
 ## Session Policy
-- Auto-logout after 15 min inactivity
-- Single active session per AB Number
-
-## Audit Logging
-Every login attempt (success or fail) is recorded with:
-- `ab_number`, `timestamp`, `ip_address`, `user_agent`, `status`, `reason`
-
-## Why AB Number
-- Regulatory-recognized broker identifier
-- Unique per broker → traceable audit trail
-- Removes need for shared usernames
+- Auto-logout after 15 min inactivity.
+- Session stored in `localStorage` with explicit `session_role` parameter.

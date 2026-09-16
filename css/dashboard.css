@@ -18,7 +18,18 @@ header {
   position: sticky; top: 0; z-index: 50;
 }
 
-header h1 { font-size: 17px; font-weight: 600; }
+header h1 { font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+
+header .admin-badge {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
 
 header .user {
   display: flex; align-items: center; gap: 10px;

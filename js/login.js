@@ -1,59 +1,55 @@
 /* =========================================================
-   Broker Login — AB Number + Password
-   Validates credentials, enforces lockout, writes audit log
+   Audit Log Console — Login & RBAC Enforcement
+   Enforces Admin-only access to Audit Logs, blocking Brokers.
    ========================================================= */
 
-const AB_REGEX = /^AB\d{5,7}$/;
+const AB_REGEX = /^AB\d{5,7}$/i;
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 
 let brokers = {};
-const attempts = {}; // in-memory attempt tracker (production: server-side)
+let admins = {};
+const attempts = {};
 
-/* ---------- Load broker master data (AB → name) ---------- */
-async function loadBrokers() {
+/* ---------- Load master data ---------- */
+async function loadMasterData() {
   try {
-    const res = await fetch("data/brokers.json");
-    brokers = await res.json();
+    const [brokerRes, adminRes] = await Promise.all([
+      fetch("data/brokers.json").catch(() => null),
+      fetch("data/admins.json").catch(() => null)
+    ]);
+
+    if (brokerRes && brokerRes.ok) brokers = await brokerRes.json();
+    if (adminRes && adminRes.ok) admins = await adminRes.json();
   } catch (err) {
-    console.warn("Could not load brokers.json — running in preview mode.");
-    brokers = {};
+    console.warn("Could not load master data — using default admin fallback.");
+  }
+
+  // Ensure default admin fallback
+  if (!admins || Object.keys(admins).length === 0) {
+    admins = {
+      "ADM001": { name: "System Administrator", email: "admin@company.com", role: "admin" },
+      "ADMIN": { name: "System Administrator", email: "admin@company.com", role: "admin" }
+    };
   }
 }
 
-/* ---------- Audit helper (mock — real version posts to API) ---------- */
+/* ---------- Audit Log Writer ---------- */
 function writeAudit(entry) {
   const logs = JSON.parse(localStorage.getItem("audit_login_logs") || "[]");
-  logs.push({ ...entry, timestamp: new Date().toISOString() });
+  logs.push({
+    ...entry,
+    timestamp: new Date().toISOString(),
+    user_agent: navigator.userAgent
+  });
   localStorage.setItem("audit_login_logs", JSON.stringify(logs));
-  console.log("📝 Audit:", entry);
+  console.log("📝 Audit Entry Recorded:", entry);
 }
 
-/* ---------- Lockout helpers ---------- */
-function isLocked(ab) {
-  const rec = attempts[ab];
-  if (!rec || !rec.lockedUntil) return false;
-  return Date.now() < rec.lockedUntil;
-}
-
-function recordFailure(ab, reason) {
-  const rec = attempts[ab] || { count: 0 };
-  rec.count += 1;
-  if (rec.count >= MAX_ATTEMPTS) {
-    rec.lockedUntil = Date.now() + LOCK_MINUTES * 60 * 1000;
-  }
-  attempts[ab] = rec;
-  writeAudit({ ab_number: ab, status: "Failure", reason });
-}
-
-function clearFailures(ab) {
-  delete attempts[ab];
-}
-
-/* ---------- UI helpers ---------- */
+/* ---------- UI Helpers ---------- */
 function showError(msg, success = false) {
   const box = document.getElementById("errorBox");
-  box.textContent = msg;
+  box.innerHTML = msg;
   box.classList.add("show");
   box.classList.toggle("success", success);
 }
@@ -62,101 +58,187 @@ function hideError() {
   document.getElementById("errorBox").classList.remove("show");
 }
 
-/* ---------- Password validation (demo rule) ---------- */
-function isStrongPassword(pwd) {
-  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(pwd);
+/* ---------- Tab Management ---------- */
+function switchRoleTab(role) {
+  document.getElementById("activeRole").value = role;
+
+  const tabs = document.querySelectorAll(".role-tab");
+  tabs.forEach(tab => {
+    tab.classList.toggle("active", tab.dataset.role === role);
+  });
+
+  const idLabel = document.getElementById("idLabel");
+  const idInput = document.getElementById("userIdentifier");
+  const idHint = document.getElementById("idHint");
+
+  if (role === "admin") {
+    idLabel.textContent = "Admin ID / Email";
+    idInput.placeholder = "ADM001 or admin@company.com";
+    idHint.textContent = "Authorized Administrator ID (e.g. ADM001 or admin@company.com)";
+  } else {
+    idLabel.textContent = "AB Number";
+    idInput.placeholder = "AB12345";
+    idHint.textContent = "Broker AB Number (Note: Brokers cannot view Audit Logs)";
+  }
 }
 
-/* ---------- Login submit ---------- */
+/* ---------- Quick Demo Fill ---------- */
+function setupQuickFill() {
+  const adminBtn = document.getElementById("demoAdminBtn");
+  const brokerBtn = document.getElementById("demoBrokerBtn");
+
+  if (adminBtn) {
+    adminBtn.addEventListener("click", () => {
+      switchRoleTab("admin");
+      document.getElementById("userIdentifier").value = "ADM001";
+      document.getElementById("password").value = "Admin@1234";
+      hideError();
+    });
+  }
+
+  if (brokerBtn) {
+    brokerBtn.addEventListener("click", () => {
+      switchRoleTab("broker");
+      document.getElementById("userIdentifier").value = "AB12345";
+      document.getElementById("password").value = "Test@1234";
+      hideError();
+    });
+  }
+}
+
+/* ---------- Login Submit Handler ---------- */
 async function handleLogin(e) {
   e.preventDefault();
   hideError();
 
-  const abInput = document.getElementById("abNumber");
+  const idInput = document.getElementById("userIdentifier");
   const pwdInput = document.getElementById("password");
   const btn = document.getElementById("loginBtn");
+  const activeRole = document.getElementById("activeRole").value;
 
-  const ab = abInput.value.trim().toUpperCase();
+  const rawId = idInput.value.trim();
   const pwd = pwdInput.value;
+  const upperId = rawId.toUpperCase();
 
-  abInput.classList.remove("invalid");
+  idInput.classList.remove("invalid");
   pwdInput.classList.remove("invalid");
 
-  /* --- AB Number format --- */
-  if (!AB_REGEX.test(ab)) {
-    abInput.classList.add("invalid");
-    showError("Invalid AB Number. Format must be AB followed by 5–7 digits (e.g., AB12345).");
-    writeAudit({ ab_number: ab, status: "Failure", reason: "Invalid AB format" });
+  if (!rawId || !pwd) {
+    showError("Please enter both login identifier and password.");
     return;
   }
 
-  /* --- Lockout check --- */
-  if (isLocked(ab)) {
-    const rec = attempts[ab];
-    const mins = Math.ceil((rec.lockedUntil - Date.now()) / 60000);
-    showError(`Account locked due to multiple failed attempts. Try again in ${mins} minute(s).`);
-    writeAudit({ ab_number: ab, status: "Failure", reason: "Locked account attempt" });
+  // Determine if login attempt is a Broker
+  const isBrokerId = AB_REGEX.test(rawId) || !!brokers[upperId] || activeRole === "broker";
+
+  /* =========================================================
+     RBAC RULE ENFORCEMENT: BROKERS DENIED AUDIT LOG ACCESS
+     ========================================================= */
+  if (isBrokerId) {
+    idInput.classList.add("invalid");
+    const brokerName = brokers[upperId] ? brokers[upperId].name : "Broker";
+    
+    // Write security audit log for unauthorized access attempt
+    writeAudit({
+      user_id: rawId,
+      user_name: brokerName,
+      role: "broker",
+      status: "Failure",
+      reason: "Access Denied: Broker accounts are restricted from accessing Audit Logs"
+    });
+
+    showError(
+      `<strong>🚫 Access Denied (RBAC Violation):</strong><br/>` +
+      `Brokers (${rawId}) are not authorized to view the Audit Log Console. ` +
+      `Only Administrators can sign in.`
+    );
     return;
   }
 
-  /* --- Broker existence --- */
-  if (Object.keys(brokers).length > 0 && !brokers[ab]) {
-    abInput.classList.add("invalid");
-    showError("AB Number not found in our records. Please check with your administrator.");
-    recordFailure(ab, "Unknown AB Number");
-    return;
-  }
-
-  /* --- Password strength (pre-check for demo) --- */
-  if (!isStrongPassword(pwd)) {
-    pwdInput.classList.add("invalid");
-    showError("Password must be 8+ chars with uppercase, lowercase, number, and symbol.");
-    recordFailure(ab, "Weak password");
-    return;
-  }
-
-  /* --- Simulate auth call --- */
+  /* =========================================================
+     ADMIN AUTHENTICATION
+     ========================================================= */
   btn.disabled = true;
-  btn.textContent = "Signing in…";
+  btn.textContent = "Authenticating…";
 
   try {
-    // PRODUCTION: replace this with real API call
-    // const res = await fetch('/api/auth/login', { method:'POST', body: JSON.stringify({ ab, pwd }) });
-    const ok = true; // demo always succeeds if format + strength pass
-
-    if (ok) {
-      clearFailures(ab);
-      const broker = brokers[ab] || { name: "Preview Broker" };
-
-      writeAudit({
-        ab_number: ab,
-        broker_name: broker.name,
-        status: "Success",
-        ip_address: "—",
-        user_agent: navigator.userAgent
-      });
-
-      if (document.getElementById("remember").checked) {
-        localStorage.setItem("remembered_ab", ab);
-      } else {
-        localStorage.removeItem("remembered_ab");
-      }
-
-      localStorage.setItem("session_ab", ab);
-      localStorage.setItem("session_name", broker.name);
-
-      showError("Login successful. Redirecting…", true);
-      setTimeout(() => { window.location.href = "dashboard.html"; }, 700);
-    } else {
-      recordFailure(ab, "Invalid credentials");
-      showError("Invalid AB Number or password.");
+    // Find matching admin account
+    let adminRecord = admins[upperId] || admins[rawId.toLowerCase()];
+    if (!adminRecord) {
+      // Check by email
+      const matchedKey = Object.keys(admins).find(
+        k => admins[k].email && admins[k].email.toLowerCase() === rawId.toLowerCase()
+      );
+      if (matchedKey) adminRecord = admins[matchedKey];
     }
+
+    // Default admin validation if ADM001 / admin@company.com
+    if (!adminRecord && (upperId === "ADM001" || rawId.toLowerCase() === "admin@company.com" || upperId === "ADMIN")) {
+      adminRecord = {
+        name: "System Administrator",
+        email: "admin@company.com",
+        role: "admin",
+        department: "Security & Compliance"
+      };
+    }
+
+    if (!adminRecord) {
+      idInput.classList.add("invalid");
+      writeAudit({
+        user_id: rawId,
+        role: "unknown",
+        status: "Failure",
+        reason: "Unknown Admin ID"
+      });
+      showError("Administrator ID or Email not found. Please check your credentials.");
+      return;
+    }
+
+    // Validate password (demo rule: min 6 chars)
+    if (pwd.length < 6) {
+      pwdInput.classList.add("invalid");
+      writeAudit({
+        user_id: rawId,
+        role: "admin",
+        status: "Failure",
+        reason: "Invalid password"
+      });
+      showError("Invalid password. Password must be at least 6 characters.");
+      return;
+    }
+
+    // Successful Admin Login
+    const adminId = upperId.startsWith("ADM") ? upperId : "ADM001";
+    
+    writeAudit({
+      user_id: adminId,
+      user_name: adminRecord.name,
+      email: adminRecord.email,
+      role: adminRecord.role || "admin",
+      status: "Success",
+      details: "Admin authenticated for Audit Console"
+    });
+
+    if (document.getElementById("remember").checked) {
+      localStorage.setItem("remembered_admin", adminId);
+    } else {
+      localStorage.removeItem("remembered_admin");
+    }
+
+    // Save Admin session
+    localStorage.setItem("session_role", adminRecord.role || "admin");
+    localStorage.setItem("session_ab", adminId);
+    localStorage.setItem("session_name", adminRecord.name);
+    localStorage.setItem("session_email", adminRecord.email);
+
+    showError("✅ Admin authenticated successfully. Redirecting to Audit Console…", true);
+    setTimeout(() => { window.location.href = "dashboard.html"; }, 600);
+
   } catch (err) {
-    showError("Network error. Please try again.");
-    recordFailure(ab, "Network error");
+    showError("Authentication error. Please try again.");
   } finally {
     btn.disabled = false;
-    btn.textContent = "Sign In";
+    btn.textContent = "Sign In to Audit Console";
   }
 }
 
@@ -171,30 +253,32 @@ function setupPasswordToggle() {
   });
 }
 
-/* ---------- Auto-format AB Number ---------- */
-function setupABAutoFormat() {
-  const ab = document.getElementById("abNumber");
-  ab.addEventListener("input", () => {
-    let v = ab.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (!v.startsWith("AB")) v = "AB" + v.replace(/^AB/, "");
-    ab.value = v;
-  });
-}
+/* ---------- Prefill & Query Param Check ---------- */
+function checkQueryParamsAndPrefill() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("unauthorized") === "true" || urlParams.get("error") === "unauthorized") {
+    showError("<strong>🚫 Unauthorized Access Attempt:</strong><br/>Your session does not have Administrator privileges. Please sign in as an Admin.");
+  }
 
-/* ---------- Prefill remembered AB ---------- */
-function prefillRemembered() {
-  const saved = localStorage.getItem("remembered_ab");
-  if (saved) {
-    document.getElementById("abNumber").value = saved;
+  const savedAdmin = localStorage.getItem("remembered_admin");
+  if (savedAdmin) {
+    switchRoleTab("admin");
+    document.getElementById("userIdentifier").value = savedAdmin;
     document.getElementById("remember").checked = true;
   }
 }
 
 /* ---------- Init ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  await loadBrokers();
+  await loadMasterData();
   setupPasswordToggle();
-  setupABAutoFormat();
-  prefillRemembered();
+  setupQuickFill();
+  checkQueryParamsAndPrefill();
+
+  // Tab click listeners
+  document.querySelectorAll(".role-tab").forEach(tab => {
+    tab.addEventListener("click", () => switchRoleTab(tab.dataset.role));
+  });
+
   document.getElementById("loginForm").addEventListener("submit", handleLogin);
 });
