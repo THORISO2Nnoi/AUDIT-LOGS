@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Audit Log Console</title>
   <link rel="stylesheet" href="css/dashboard.css" />
+  <!-- jsPDF & AutoTable for Client-Side PDF Exports -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
@@ -46,8 +49,8 @@
           <p class="sub">All broker actions across every tool in the platform.</p>
         </div>
         <div class="actions">
-          <button class="secondary" onclick="alert('Export CSV (preview).')">Export CSV</button>
-          <button onclick="alert('Export PDF (preview).')">Export PDF</button>
+          <button class="secondary" id="btnExportActivityCSV">Export CSV</button>
+          <button id="btnExportActivityPDF">Export PDF</button>
         </div>
       </div>
 
@@ -65,7 +68,10 @@
         <div><label>Tool</label><select id="fTool"><option value="">All Tools</option></select></div>
         <div><label>Action</label><select id="fAction"><option value="">All Actions</option></select></div>
         <div><label>Search</label><input type="text" id="fSearch" placeholder="Search details…"></div>
-        <div><label>&nbsp;</label><button class="apply" id="applyFilters">Apply</button></div>
+        <div style="display:flex; gap:6px; align-items:flex-end;">
+          <button class="apply" id="applyFilters" style="flex:1;">Apply</button>
+          <button class="secondary" id="resetFilters" style="padding:9px 12px;">Reset</button>
+        </div>
       </div>
 
       <div class="table-wrap">
@@ -93,7 +99,10 @@
     <section class="view" id="view-logins">
       <div class="topbar">
         <div><h2>Login Activity</h2><p class="sub">Daily logins, sessions, failed attempts.</p></div>
-        <div class="actions"><button class="secondary">Export CSV</button></div>
+        <div class="actions">
+          <button class="secondary" id="btnExportLoginsCSV">Export CSV</button>
+          <button id="btnExportLoginsPDF">Export PDF</button>
+        </div>
       </div>
       <div class="kpis">
         <div class="kpi"><div class="label">Logins Today</div><div class="value">248</div><div class="delta up">▲ 12%</div></div>
@@ -123,6 +132,10 @@
     <section class="view" id="view-downloads">
       <div class="topbar">
         <div><h2>Report Downloads</h2><p class="sub">Track every report download by AB Number.</p></div>
+        <div class="actions">
+          <button class="secondary" id="btnExportDownloadsCSV">Export CSV</button>
+          <button id="btnExportDownloadsPDF">Export PDF</button>
+        </div>
       </div>
       <div class="kpis">
         <div class="kpi"><div class="label">Downloads Today</div><div class="value">412</div><div class="delta down">▼ 3%</div></div>
@@ -152,12 +165,16 @@
     <section class="view" id="view-security">
       <div class="topbar">
         <div><h2>Security Events</h2><p class="sub">Failed logins, suspicious activity, alerts.</p></div>
+        <div class="actions">
+          <button class="secondary" id="btnExportSecurityCSV">Export CSV</button>
+          <button id="btnExportSecurityPDF">Export PDF</button>
+        </div>
       </div>
       <div class="kpis">
-        <div class="kpi"><div class="label">Critical</div><div class="value" style="color:#dc2626">2</div></div>
-        <div class="kpi"><div class="label">High</div><div class="value" style="color:#d97706">5</div></div>
-        <div class="kpi"><div class="label">Medium</div><div class="value" style="color:#ca8a04">12</div></div>
-        <div class="kpi"><div class="label">Resolved (7d)</div><div class="value" style="color:#059669">38</div></div>
+        <div class="kpi"><div class="label">Critical</div><div class="value" id="kpiCritical" style="color:#dc2626">2</div></div>
+        <div class="kpi"><div class="label">High</div><div class="value" id="kpiHigh" style="color:#d97706">5</div></div>
+        <div class="kpi"><div class="label">Medium</div><div class="value" id="kpiMedium" style="color:#ca8a04">12</div></div>
+        <div class="kpi"><div class="label">Resolved (7d)</div><div class="value" id="kpiResolved" style="color:#059669">38</div></div>
       </div>
       <div class="table-wrap">
         <table>
@@ -177,7 +194,22 @@
     <section class="view" id="view-broker">
       <div class="topbar">
         <div><h2>Broker Summary</h2><p class="sub">Per-broker activity and usage.</p></div>
+        <div class="actions">
+          <button class="secondary" id="btnExportBrokerCSV">Export CSV</button>
+          <button id="btnExportBrokerPDF">Export PDF</button>
+        </div>
       </div>
+
+      <div class="filters" style="grid-template-columns: 1fr auto; margin-bottom: 16px;">
+        <div>
+          <label>Search Broker</label>
+          <input type="text" id="fBrokerSearch" placeholder="Search by Broker Name or AB Number (e.g. AB12345 or Rahul)...">
+        </div>
+        <div style="align-self: end;">
+          <button class="secondary" id="btnResetBrokerSearch">Clear Search</button>
+        </div>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead>
@@ -196,6 +228,10 @@
     <section class="view" id="view-tools">
       <div class="topbar">
         <div><h2>Tool Usage Analytics</h2><p class="sub">How brokers engage with each tool.</p></div>
+        <div class="actions">
+          <button class="secondary" id="btnExportToolsCSV">Export CSV</button>
+          <button id="btnExportToolsPDF">Export PDF</button>
+        </div>
       </div>
       <div class="chart">
         <h4>Total Actions per Tool</h4>
@@ -224,41 +260,49 @@
         <div class="card">
           <h4>📄 Quick Export</h4>
           <p>Export current view with active filters.</p>
-          <select>
-            <option>Current view</option>
-            <option>Activity Log</option>
-            <option>Login Activity</option>
-            <option>Report Downloads</option>
-            <option>Security Events</option>
+          <select id="quickExportView">
+            <option value="Activity Log">Activity Log</option>
+            <option value="Login Activity">Login Activity</option>
+            <option value="Report Downloads">Report Downloads</option>
+            <option value="Security Events">Security Events</option>
+            <option value="Broker Summary">Broker Summary</option>
           </select>
-          <select>
-            <option>Format: CSV</option>
-            <option>Format: Excel</option>
-            <option>Format: PDF</option>
+          <select id="quickExportFormat">
+            <option value="CSV">Format: CSV</option>
+            <option value="Excel">Format: Excel</option>
+            <option value="PDF">Format: PDF</option>
           </select>
-          <button onclick="alert('Export started (preview).')">Export Now</button>
+          <button id="quickExportBtn">Export Now</button>
         </div>
 
         <div class="card">
           <h4>⚙️ Custom Export</h4>
           <p>Select a date range and categories.</p>
-          <input type="date" value="2025-01-01">
-          <input type="date" value="2025-01-31">
-          <div class="checkbox-row"><input type="checkbox" checked> Logins</div>
-          <div class="checkbox-row"><input type="checkbox" checked> Tool Actions</div>
-          <div class="checkbox-row"><input type="checkbox" checked> Downloads</div>
-          <div class="checkbox-row"><input type="checkbox"> Security Events</div>
-          <button onclick="alert('Custom export queued.')">Generate</button>
+          <input type="date" id="customExportFrom" value="2025-01-01">
+          <input type="date" id="customExportTo" value="2025-01-31">
+          <div class="checkbox-row"><input type="checkbox" id="chkLogins" checked> Logins</div>
+          <div class="checkbox-row"><input type="checkbox" id="chkActions" checked> Tool Actions</div>
+          <div class="checkbox-row"><input type="checkbox" id="chkDownloads" checked> Downloads</div>
+          <div class="checkbox-row"><input type="checkbox" id="chkSecurity"> Security Events</div>
+          <select id="customExportFormat" style="margin-top:6px;">
+            <option value="CSV">Format: CSV</option>
+            <option value="PDF">Format: PDF</option>
+          </select>
+          <button id="customExportBtn">Generate & Export</button>
         </div>
 
         <div class="card">
           <h4>📧 Scheduled Reports</h4>
           <p>Email audit summaries on a schedule.</p>
-          <select>
-            <option>Daily</option><option>Weekly</option><option>Monthly</option>
+          <select id="schedFreq">
+            <option value="Daily">Daily</option>
+            <option value="Weekly">Weekly</option>
+            <option value="Monthly">Monthly</option>
           </select>
-          <input type="email" placeholder="Recipient email" value="compliance@company.com">
-          <button onclick="alert('Schedule saved (preview).')">Save Schedule</button>
+          <input type="email" id="schedEmail" placeholder="Recipient email" value="compliance@company.com">
+          <button id="saveSchedBtn">Save Schedule</button>
+
+          <div class="scheduled-list" id="scheduledReportsList"></div>
         </div>
 
       </div>
@@ -282,6 +326,77 @@
   </main>
 </div>
 
+<!-- SECURITY EVENT DETAILS CARD VIEW MODAL -->
+<div class="modal-overlay" id="securityModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="secModalTitle">🚨 Security Event Details</h3>
+      <button class="modal-close" id="btnCloseSecModalX">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="card-grid">
+        <div class="card-field">
+          <label>Timestamp</label>
+          <div id="secFieldTimestamp">—</div>
+        </div>
+        <div class="card-field">
+          <label>Severity</label>
+          <div id="secFieldSeverity">—</div>
+        </div>
+        <div class="card-field">
+          <label>Event Type</label>
+          <div id="secFieldType">—</div>
+        </div>
+        <div class="card-field">
+          <label>Source</label>
+          <div id="secFieldSource">—</div>
+        </div>
+        <div class="card-field">
+          <label>IP Address</label>
+          <div id="secFieldIP">—</div>
+        </div>
+        <div class="card-field">
+          <label>Current Status</label>
+          <div id="secFieldStatus">—</div>
+        </div>
+      </div>
+      <label style="font-size:11px; text-transform:uppercase; color:#64748b; font-weight:700; display:block; margin-bottom:4px;">Event Description</label>
+      <div class="card-description-box" id="secFieldDesc">
+        —
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-resolve" id="btnToggleResolve">Mark as Resolved</button>
+      <button class="btn-close-card" id="btnCloseSecModal">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- EMAIL DISPATCH PREVIEW MODAL -->
+<div class="modal-overlay" id="emailPreviewModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>📧 Scheduled Email Dispatch Preview</h3>
+      <button class="modal-close" id="btnCloseEmailModalX">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="email-meta">
+        <div><strong>To:</strong> <span id="emailTargetTo" style="color:#1e3a8a; font-weight:700;">compliance@company.com</span></div>
+        <div><strong>Subject:</strong> <span id="emailSubject">[Audit Console Report] Scheduled Summary</span></div>
+        <div><strong>Frequency:</strong> <span id="emailFreqTag">Daily</span></div>
+      </div>
+      <div class="email-body-box" id="emailBodyContent">
+        —
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-resolve" id="btnSendTestEmail">Send Email Now</button>
+      <button class="btn-close-card" id="btnCloseEmailModal">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/exporter.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/filters.js"></script>

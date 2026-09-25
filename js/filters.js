@@ -28,4 +28,20 @@ window.setupFilters = function(state, renderFn){
     state.filteredActivity = filtered;
     renderFn(filtered);
   });
+
+  const resetBtn = document.getElementById("resetFilters");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      document.getElementById("fFrom").value = "";
+      document.getElementById("fTo").value = "";
+      document.getElementById("fBroker").value = "";
+      document.getElementById("fTool").value = "";
+      document.getElementById("fAction").value = "";
+      document.getElementById("fSearch").value = "";
+
+      state.filteredActivity = [...state.activity];
+      renderFn(state.filteredActivity);
+      if (window.Exporter) window.Exporter.toast("Activity log filters reset");
+    });
+  }
 };

@@ -11,7 +11,9 @@ const state = {
   brokerSummary: [],
   toolUsage: [],
   exports: [],
-  filteredActivity: []
+  filteredActivity: [],
+  schedules: [],
+  activeSecIndex: null
 };
 
 /* ---------- Data loading ---------- */
@@ -48,6 +50,14 @@ async function loadAllData(){
   state.toolUsage     = toolUsage     || [];
   state.exports       = exports       || [];
   state.filteredActivity = [...state.activity];
+
+  state.schedules = JSON.parse(localStorage.getItem("audit_schedules") || "[]");
+  if (!state.schedules.length) {
+    state.schedules = [
+      { id: 1, freq: "Daily", email: "compliance@company.com", created: "2025-01-30 08:00:00", lastSent: "Today 08:00 AM" }
+    ];
+    localStorage.setItem("audit_schedules", JSON.stringify(state.schedules));
+  }
 }
 
 /* ---------- Helpers ---------- */
@@ -118,8 +128,25 @@ function renderDownloads(){
     </tr>`).join("");
 }
 
+function updateSecurityKPIs() {
+  const crit = state.security.filter(s => s.severity === 'Critical' && s.status === 'Open').length;
+  const high = state.security.filter(s => s.severity === 'High' && s.status === 'Open').length;
+  const med  = state.security.filter(s => s.severity === 'Medium' && s.status === 'Open').length;
+  const res  = state.security.filter(s => s.status === 'Resolved').length;
+
+  const elCrit = document.getElementById("kpiCritical");
+  const elHigh = document.getElementById("kpiHigh");
+  const elMed  = document.getElementById("kpiMedium");
+  const elRes  = document.getElementById("kpiResolved");
+
+  if (elCrit) elCrit.textContent = crit;
+  if (elHigh) elHigh.textContent = high;
+  if (elMed)  elMed.textContent  = med;
+  if (elRes)  elRes.textContent  = res;
+}
+
 function renderSecurity(){
-  document.getElementById("tbl-security").innerHTML = state.security.map(r => `
+  document.getElementById("tbl-security").innerHTML = state.security.map((r, i) => `
     <tr>
       <td>${r.timestamp}</td>
       <td><span class="badge ${sevClass(r.severity)}">${r.severity}</span></td>
@@ -128,12 +155,80 @@ function renderSecurity(){
       <td>${r.ip}</td>
       <td>${r.description}</td>
       <td><span class="badge ${r.status === 'Open' ? 'open' : 'resolved'}">${r.status}</span></td>
-      <td><button style="background:#1e3a8a;color:#fff;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11.5px;" onclick="alert('Details (preview).')">View</button></td>
+      <td><button style="background:#1e3a8a;color:#fff;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11.5px;" onclick="openSecurityCard(${i})">View</button></td>
     </tr>`).join("");
+
+  updateSecurityKPIs();
 }
 
-function renderBroker(){
-  document.getElementById("tbl-broker").innerHTML = state.brokerSummary.map(r => `
+window.openSecurityCard = function(index) {
+  const item = state.security[index];
+  if (!item) return;
+  state.activeSecIndex = index;
+
+  document.getElementById("secFieldTimestamp").textContent = item.timestamp;
+  document.getElementById("secFieldSeverity").innerHTML = `<span class="badge ${sevClass(item.severity)}">${item.severity}</span>`;
+  document.getElementById("secFieldType").textContent = item.type;
+  document.getElementById("secFieldSource").textContent = item.source;
+  document.getElementById("secFieldIP").textContent = item.ip;
+  document.getElementById("secFieldStatus").innerHTML = `<span class="badge ${item.status === 'Open' ? 'open' : 'resolved'}">${item.status}</span>`;
+  document.getElementById("secFieldDesc").textContent = item.description;
+
+  const btnResolve = document.getElementById("btnToggleResolve");
+  if (item.status === 'Open') {
+    btnResolve.textContent = "Mark as Resolved";
+    btnResolve.className = "btn-resolve";
+  } else {
+    btnResolve.textContent = "Mark as Open";
+    btnResolve.className = "btn-reopen";
+  }
+
+  document.getElementById("securityModal").classList.add("active");
+};
+
+function setupSecurityModal() {
+  const modal = document.getElementById("securityModal");
+  const closeBtn = document.getElementById("btnCloseSecModal");
+  const closeX = document.getElementById("btnCloseSecModalX");
+  const resolveBtn = document.getElementById("btnToggleResolve");
+
+  const closeModal = () => modal.classList.remove("active");
+
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+  if (closeX) closeX.addEventListener("click", closeModal);
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+  }
+
+  if (resolveBtn) {
+    resolveBtn.addEventListener("click", () => {
+      if (state.activeSecIndex === null) return;
+      const item = state.security[state.activeSecIndex];
+      if (!item) return;
+
+      if (item.status === 'Open') {
+        item.status = 'Resolved';
+        if (window.Exporter) window.Exporter.toast(`Event "${item.type}" marked as Resolved!`);
+      } else {
+        item.status = 'Open';
+        if (window.Exporter) window.Exporter.toast(`Event "${item.type}" marked as Open.`);
+      }
+
+      renderSecurity();
+      openSecurityCard(state.activeSecIndex);
+    });
+  }
+}
+
+function renderBroker(rows = state.brokerSummary){
+  const tbody = document.getElementById("tbl-broker");
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af;">No brokers match the search.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
     <tr>
       <td>${r.ab_number}</td>
       <td>${brokerName(r.ab_number)}</td>
@@ -143,6 +238,38 @@ function renderBroker(){
       <td>${r.top_tool}</td>
       <td>${r.last_activity}</td>
     </tr>`).join("");
+}
+
+function setupBrokerSearch() {
+  const searchInput = document.getElementById("fBrokerSearch");
+  const resetBtn = document.getElementById("btnResetBrokerSearch");
+
+  if (searchInput) {
+    const handleSearch = () => {
+      const q = searchInput.value.toLowerCase().trim();
+      if (!q) {
+        renderBroker(state.brokerSummary);
+        return;
+      }
+      const filtered = state.brokerSummary.filter(r => {
+        const name = brokerName(r.ab_number).toLowerCase();
+        const ab = (r.ab_number || "").toLowerCase();
+        return name.includes(q) || ab.includes(q);
+      });
+      renderBroker(filtered);
+    };
+
+    searchInput.addEventListener("input", handleSearch);
+    searchInput.addEventListener("keyup", handleSearch);
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      renderBroker(state.brokerSummary);
+      if (window.Exporter) window.Exporter.toast("Broker search cleared.");
+    });
+  }
 }
 
 function renderTools(){
@@ -166,6 +293,485 @@ function renderExports(){
       <td>${r.rows}</td>
       <td class="status-ok">${r.status}</td>
     </tr>`).join("");
+}
+
+function recordExportLog(viewName, format, rowCount) {
+  const entry = {
+    timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    exported_by: `${localStorage.getItem("session_name") || "Admin"} (${localStorage.getItem("session_ab") || "ADM001"})`,
+    view: viewName,
+    format: format,
+    rows: `${rowCount} rows`,
+    status: "Success"
+  };
+  state.exports.unshift(entry);
+  renderExports();
+}
+
+function setupExportButtons() {
+  // Activity Log Exports
+  const btnActCSV = document.getElementById("btnExportActivityCSV");
+  const btnActPDF = document.getElementById("btnExportActivityPDF");
+  if (btnActCSV) {
+    btnActCSV.addEventListener("click", () => {
+      const data = state.filteredActivity.map(r => ({
+        "Timestamp": r.timestamp,
+        "AB Number": r.ab_number,
+        "Broker": brokerName(r.ab_number),
+        "IP": r.ip,
+        "Tool": r.tool,
+        "Action": r.action,
+        "Details": r.details,
+        "Status": r.status
+      }));
+      const headers = ["Timestamp", "AB Number", "Broker", "IP", "Tool", "Action", "Details", "Status"];
+      if (window.Exporter.csv("Activity Log", headers, data, "Activity_Log.csv")) {
+        recordExportLog("Activity Log", "CSV", data.length);
+      }
+    });
+  }
+
+  if (btnActPDF) {
+    btnActPDF.addEventListener("click", () => {
+      const data = state.filteredActivity.map(r => ({
+        "Timestamp": r.timestamp,
+        "AB Number": r.ab_number,
+        "Broker": brokerName(r.ab_number),
+        "IP": r.ip,
+        "Tool": r.tool,
+        "Action": r.action,
+        "Details": r.details,
+        "Status": r.status
+      }));
+      const headers = ["Timestamp", "AB Number", "Broker", "IP", "Tool", "Action", "Details", "Status"];
+      if (window.Exporter.pdf("Activity Log", headers, data, "Activity_Log.pdf")) {
+        recordExportLog("Activity Log", "PDF", data.length);
+      }
+    });
+  }
+
+  // Login Activity Exports
+  const btnLoginsCSV = document.getElementById("btnExportLoginsCSV");
+  const btnLoginsPDF = document.getElementById("btnExportLoginsPDF");
+  if (btnLoginsCSV) {
+    btnLoginsCSV.addEventListener("click", () => {
+      const data = state.logins.map(r => ({
+        "Date": r.date,
+        "AB Number": r.ab_number,
+        "Broker": brokerName(r.ab_number),
+        "Login": r.login,
+        "Logout": r.logout,
+        "Duration": r.duration,
+        "IP": r.ip,
+        "Status": r.status
+      }));
+      const headers = ["Date", "AB Number", "Broker", "Login", "Logout", "Duration", "IP", "Status"];
+      if (window.Exporter.csv("Login Activity", headers, data, "Login_Activity.csv")) {
+        recordExportLog("Login Activity", "CSV", data.length);
+      }
+    });
+  }
+  if (btnLoginsPDF) {
+    btnLoginsPDF.addEventListener("click", () => {
+      const data = state.logins.map(r => ({
+        "Date": r.date,
+        "AB Number": r.ab_number,
+        "Broker": brokerName(r.ab_number),
+        "Login": r.login,
+        "Logout": r.logout,
+        "Duration": r.duration,
+        "IP": r.ip,
+        "Status": r.status
+      }));
+      const headers = ["Date", "AB Number", "Broker", "Login", "Logout", "Duration", "IP", "Status"];
+      if (window.Exporter.pdf("Login Activity", headers, data, "Login_Activity.pdf")) {
+        recordExportLog("Login Activity", "PDF", data.length);
+      }
+    });
+  }
+
+  // Downloads Exports
+  const btnDlCSV = document.getElementById("btnExportDownloadsCSV");
+  const btnDlPDF = document.getElementById("btnExportDownloadsPDF");
+  if (btnDlCSV) {
+    btnDlCSV.addEventListener("click", () => {
+      const data = state.downloads.map(r => ({
+        "Timestamp": r.timestamp,
+        "AB Number": r.ab_number,
+        "Broker": brokerName(r.ab_number),
+        "Report": r.report,
+        "Tool": r.tool,
+        "Format": r.format,
+        "Size": r.size,
+        "Status": r.status
+      }));
+      const headers = ["Timestamp", "AB Number", "Broker", "Report", "Tool", "Format", "Size", "Status"];
+      if (window.Exporter.csv("Report Downloads", headers, data, "Report_Downloads.csv")) {
+        recordExportLog("Report Downloads", "CSV", data.length);
+      }
+    });
+  }
+  if (btnDlPDF) {
+    btnDlPDF.addEventListener("click", () => {
+      const data = state.downloads.map(r => ({
+        "Timestamp": r.timestamp,
+        "AB Number": r.ab_number,
+        "Broker": brokerName(r.ab_number),
+        "Report": r.report,
+        "Tool": r.tool,
+        "Format": r.format,
+        "Size": r.size,
+        "Status": r.status
+      }));
+      const headers = ["Timestamp", "AB Number", "Broker", "Report", "Tool", "Format", "Size", "Status"];
+      if (window.Exporter.pdf("Report Downloads", headers, data, "Report_Downloads.pdf")) {
+        recordExportLog("Report Downloads", "PDF", data.length);
+      }
+    });
+  }
+
+  // Security Exports
+  const btnSecCSV = document.getElementById("btnExportSecurityCSV");
+  const btnSecPDF = document.getElementById("btnExportSecurityPDF");
+  if (btnSecCSV) {
+    btnSecCSV.addEventListener("click", () => {
+      const data = state.security.map(r => ({
+        "Timestamp": r.timestamp,
+        "Severity": r.severity,
+        "Event Type": r.type,
+        "Source": r.source,
+        "IP": r.ip,
+        "Description": r.description,
+        "Status": r.status
+      }));
+      const headers = ["Timestamp", "Severity", "Event Type", "Source", "IP", "Description", "Status"];
+      if (window.Exporter.csv("Security Events", headers, data, "Security_Events.csv")) {
+        recordExportLog("Security Events", "CSV", data.length);
+      }
+    });
+  }
+  if (btnSecPDF) {
+    btnSecPDF.addEventListener("click", () => {
+      const data = state.security.map(r => ({
+        "Timestamp": r.timestamp,
+        "Severity": r.severity,
+        "Event Type": r.type,
+        "Source": r.source,
+        "IP": r.ip,
+        "Description": r.description,
+        "Status": r.status
+      }));
+      const headers = ["Timestamp", "Severity", "Event Type", "Source", "IP", "Description", "Status"];
+      if (window.Exporter.pdf("Security Events", headers, data, "Security_Events.pdf")) {
+        recordExportLog("Security Events", "PDF", data.length);
+      }
+    });
+  }
+
+  // Broker Summary Exports
+  const btnBrkCSV = document.getElementById("btnExportBrokerCSV");
+  const btnBrkPDF = document.getElementById("btnExportBrokerPDF");
+  if (btnBrkCSV) {
+    btnBrkCSV.addEventListener("click", () => {
+      const data = state.brokerSummary.map(r => ({
+        "AB Number": r.ab_number,
+        "Broker": brokerName(r.ab_number),
+        "Logins": r.logins,
+        "Actions": r.actions,
+        "Downloads": r.downloads,
+        "Top Tool": r.top_tool,
+        "Last Activity": r.last_activity
+      }));
+      const headers = ["AB Number", "Broker", "Logins", "Actions", "Downloads", "Top Tool", "Last Activity"];
+      if (window.Exporter.csv("Broker Summary", headers, data, "Broker_Summary.csv")) {
+        recordExportLog("Broker Summary", "CSV", data.length);
+      }
+    });
+  }
+  if (btnBrkPDF) {
+    btnBrkPDF.addEventListener("click", () => {
+      const data = state.brokerSummary.map(r => ({
+        "AB Number": r.ab_number,
+        "Broker": brokerName(r.ab_number),
+        "Logins": r.logins,
+        "Actions": r.actions,
+        "Downloads": r.downloads,
+        "Top Tool": r.top_tool,
+        "Last Activity": r.last_activity
+      }));
+      const headers = ["AB Number", "Broker", "Logins", "Actions", "Downloads", "Top Tool", "Last Activity"];
+      if (window.Exporter.pdf("Broker Summary", headers, data, "Broker_Summary.pdf")) {
+        recordExportLog("Broker Summary", "PDF", data.length);
+      }
+    });
+  }
+
+  // Tool Usage Exports
+  const btnToolCSV = document.getElementById("btnExportToolsCSV");
+  const btnToolPDF = document.getElementById("btnExportToolsPDF");
+  if (btnToolCSV) {
+    btnToolCSV.addEventListener("click", () => {
+      const data = state.toolUsage.map(r => ({
+        "Tool": r.tool,
+        "Unique Brokers": r.brokers,
+        "Actions": r.actions,
+        "Sessions": r.sessions,
+        "Avg Actions / Session": r.avg
+      }));
+      const headers = ["Tool", "Unique Brokers", "Actions", "Sessions", "Avg Actions / Session"];
+      if (window.Exporter.csv("Tool Usage Analytics", headers, data, "Tool_Usage.csv")) {
+        recordExportLog("Tool Usage", "CSV", data.length);
+      }
+    });
+  }
+  if (btnToolPDF) {
+    btnToolPDF.addEventListener("click", () => {
+      const data = state.toolUsage.map(r => ({
+        "Tool": r.tool,
+        "Unique Brokers": r.brokers,
+        "Actions": r.actions,
+        "Sessions": r.sessions,
+        "Avg Actions / Session": r.avg
+      }));
+      const headers = ["Tool", "Unique Brokers", "Actions", "Sessions", "Avg Actions / Session"];
+      if (window.Exporter.pdf("Tool Usage Analytics", headers, data, "Tool_Usage.pdf")) {
+        recordExportLog("Tool Usage", "PDF", data.length);
+      }
+    });
+  }
+}
+
+function setupExportPage() {
+  // Quick Export
+  const btnQuick = document.getElementById("quickExportBtn");
+  if (btnQuick) {
+    btnQuick.addEventListener("click", () => {
+      const viewVal = document.getElementById("quickExportView").value;
+      const formatVal = document.getElementById("quickExportFormat").value;
+
+      let title = viewVal;
+      let headers = [];
+      let data = [];
+
+      if (viewVal === "Activity Log") {
+        headers = ["Timestamp", "AB Number", "Broker", "IP", "Tool", "Action", "Details", "Status"];
+        data = state.filteredActivity.map(r => ({
+          "Timestamp": r.timestamp, "AB Number": r.ab_number, "Broker": brokerName(r.ab_number),
+          "IP": r.ip, "Tool": r.tool, "Action": r.action, "Details": r.details, "Status": r.status
+        }));
+      } else if (viewVal === "Login Activity") {
+        headers = ["Date", "AB Number", "Broker", "Login", "Logout", "Duration", "IP", "Status"];
+        data = state.logins.map(r => ({
+          "Date": r.date, "AB Number": r.ab_number, "Broker": brokerName(r.ab_number),
+          "Login": r.login, "Logout": r.logout, "Duration": r.duration, "IP": r.ip, "Status": r.status
+        }));
+      } else if (viewVal === "Report Downloads") {
+        headers = ["Timestamp", "AB Number", "Broker", "Report", "Tool", "Format", "Size", "Status"];
+        data = state.downloads.map(r => ({
+          "Timestamp": r.timestamp, "AB Number": r.ab_number, "Broker": brokerName(r.ab_number),
+          "Report": r.report, "Tool": r.tool, "Format": r.format, "Size": r.size, "Status": r.status
+        }));
+      } else if (viewVal === "Security Events") {
+        headers = ["Timestamp", "Severity", "Event Type", "Source", "IP", "Description", "Status"];
+        data = state.security.map(r => ({
+          "Timestamp": r.timestamp, "Severity": r.severity, "Event Type": r.type,
+          "Source": r.source, "IP": r.ip, "Description": r.description, "Status": r.status
+        }));
+      } else {
+        headers = ["AB Number", "Broker", "Logins", "Actions", "Downloads", "Top Tool", "Last Activity"];
+        data = state.brokerSummary.map(r => ({
+          "AB Number": r.ab_number, "Broker": brokerName(r.ab_number), "Logins": r.logins,
+          "Actions": r.actions, "Downloads": r.downloads, "Top Tool": r.top_tool, "Last Activity": r.last_activity
+        }));
+      }
+
+      const fname = `${viewVal.toLowerCase().replace(/\s+/g, '_')}.${formatVal === 'PDF' ? 'pdf' : 'csv'}`;
+      if (formatVal === "PDF") {
+        window.Exporter.pdf(title, headers, data, fname);
+      } else if (formatVal === "Excel") {
+        window.Exporter.excel(title, headers, data, fname);
+      } else {
+        window.Exporter.csv(title, headers, data, fname);
+      }
+      recordExportLog(viewVal, formatVal, data.length);
+    });
+  }
+
+  // Custom Export
+  const btnCustom = document.getElementById("customExportBtn");
+  if (btnCustom) {
+    btnCustom.addEventListener("click", () => {
+      const from = document.getElementById("customExportFrom").value;
+      const to = document.getElementById("customExportTo").value;
+      const formatVal = document.getElementById("customExportFormat").value;
+
+      const chkLogins = document.getElementById("chkLogins").checked;
+      const chkActions = document.getElementById("chkActions").checked;
+      const chkDownloads = document.getElementById("chkDownloads").checked;
+      const chkSecurity = document.getElementById("chkSecurity").checked;
+
+      let aggregatedRows = [];
+      const headers = ["Date/Time", "Category", "User/AB", "Tool/Event", "Details/Status"];
+
+      if (chkLogins) {
+        state.logins.forEach(l => {
+          if ((!from || l.date >= from) && (!to || l.date <= to)) {
+            aggregatedRows.push([l.date, "Login Activity", l.ab_number, "Login", `Duration: ${l.duration} (${l.status})`]);
+          }
+        });
+      }
+
+      if (chkActions) {
+        state.activity.forEach(a => {
+          const ts = a.timestamp.slice(0, 10);
+          if ((!from || ts >= from) && (!to || ts <= to)) {
+            aggregatedRows.push([a.timestamp, "Tool Action", a.ab_number, a.tool, `${a.action}: ${a.details}`]);
+          }
+        });
+      }
+
+      if (chkDownloads) {
+        state.downloads.forEach(d => {
+          const ts = d.timestamp.slice(0, 10);
+          if ((!from || ts >= from) && (!to || ts <= to)) {
+            aggregatedRows.push([d.timestamp, "Download", d.ab_number, d.report, `Format: ${d.format} (${d.size})`]);
+          }
+        });
+      }
+
+      if (chkSecurity) {
+        state.security.forEach(s => {
+          const ts = s.timestamp.slice(0, 10);
+          if ((!from || ts >= from) && (!to || ts <= to)) {
+            aggregatedRows.push([s.timestamp, "Security Event", s.source, s.type, `${s.severity} - ${s.description}`]);
+          }
+        });
+      }
+
+      if (!aggregatedRows.length) {
+        window.Exporter.toast("No records found for custom filter selection.", false);
+        return;
+      }
+
+      const title = "Custom Audit Summary Report";
+      const fname = `Custom_Audit_Report.${formatVal === 'PDF' ? 'pdf' : 'csv'}`;
+
+      if (formatVal === "PDF") {
+        window.Exporter.pdf(title, headers, aggregatedRows, fname);
+      } else {
+        window.Exporter.csv(title, headers, aggregatedRows, fname);
+      }
+      recordExportLog("Custom Audit Export", formatVal, aggregatedRows.length);
+    });
+  }
+
+  // Scheduled Reports & Email Dispatch Preview
+  renderScheduledList();
+  const saveSchedBtn = document.getElementById("saveSchedBtn");
+  if (saveSchedBtn) {
+    saveSchedBtn.addEventListener("click", () => {
+      const freq = document.getElementById("schedFreq").value;
+      const email = document.getElementById("schedEmail").value.trim();
+
+      if (!email || !email.includes("@")) {
+        window.Exporter.toast("Please enter a valid recipient email address.", false);
+        return;
+      }
+
+      const newSched = {
+        id: Date.now(),
+        freq: freq,
+        email: email,
+        created: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        lastSent: "Pending First Run"
+      };
+
+      state.schedules.unshift(newSched);
+      localStorage.setItem("audit_schedules", JSON.stringify(state.schedules));
+      renderScheduledList();
+      window.Exporter.toast(`Schedule saved for ${email}! Previewing email dispatch...`);
+
+      openEmailPreview(newSched);
+    });
+  }
+}
+
+function renderScheduledList() {
+  const container = document.getElementById("scheduledReportsList");
+  if (!container) return;
+
+  if (!state.schedules || !state.schedules.length) {
+    container.innerHTML = `<p style="font-size:11.5px; color:#94a3b8; margin-top:8px;">No active scheduled reports.</p>`;
+    return;
+  }
+
+  container.innerHTML = state.schedules.map((s, i) => `
+    <div class="scheduled-item">
+      <div class="details">
+        <span class="email">${s.email}</span>
+        <span style="color:#64748b;">${s.freq} Report • Created: ${s.created.slice(0,10)}</span>
+      </div>
+      <div class="actions">
+        <button class="btn-resolve" style="padding:3px 8px;font-size:11px;" onclick="triggerSchedEmail(${i})">Test Send</button>
+        <button class="btn-close-card" style="padding:3px 8px;font-size:11px;color:#dc2626;" onclick="deleteSched(${i})">Delete</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+window.triggerSchedEmail = function(idx) {
+  const sched = state.schedules[idx];
+  if (sched) openEmailPreview(sched);
+};
+
+window.deleteSched = function(idx) {
+  state.schedules.splice(idx, 1);
+  localStorage.setItem("audit_schedules", JSON.stringify(state.schedules));
+  renderScheduledList();
+  window.Exporter.toast("Schedule removed.");
+};
+
+function openEmailPreview(sched) {
+  const modal = document.getElementById("emailPreviewModal");
+  if (!modal) return;
+
+  document.getElementById("emailTargetTo").textContent = sched.email;
+  document.getElementById("emailSubject").textContent = `[Audit Console] ${sched.freq} Compliance Audit Report`;
+  document.getElementById("emailFreqTag").textContent = sched.freq;
+
+  const bodyEl = document.getElementById("emailBodyContent");
+  bodyEl.innerHTML = `
+    <p>Hello Compliance Officer,</p>
+    <p style="margin: 8px 0;">This is your scheduled <strong>${sched.freq} Audit Summary Report</strong> for Audit Log Console.</p>
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:10px; border-radius:6px; margin:10px 0;">
+      <strong>📊 Summary Snapshot:</strong><br/>
+      • Total Actions Logged: 1,842<br/>
+      • Unique Active Brokers: 87<br/>
+      • Security Alerts: 2 Critical / 5 High<br/>
+      • Attached File: <code>Audit_Report_${sched.freq}_${new Date().toISOString().slice(0,10)}.pdf</code>
+    </div>
+    <p style="font-size:11.5px; color:#64748b;">This email is sent automatically to <strong>${sched.email}</strong> per your schedule configuration.</p>
+  `;
+
+  modal.classList.add("active");
+
+  const closeX = document.getElementById("btnCloseEmailModalX");
+  const closeBtn = document.getElementById("btnCloseEmailModal");
+  const sendBtn = document.getElementById("btnSendTestEmail");
+
+  const closeModal = () => modal.classList.remove("active");
+  if (closeX) closeX.onclick = closeModal;
+  if (closeBtn) closeBtn.onclick = closeModal;
+
+  if (sendBtn) {
+    sendBtn.onclick = () => {
+      sched.lastSent = new Date().toLocaleString();
+      localStorage.setItem("audit_schedules", JSON.stringify(state.schedules));
+      renderScheduledList();
+      window.Exporter.toast(`📧 Report successfully dispatched to ${sched.email}!`);
+      closeModal();
+    };
+  }
 }
 
 /* ---------- Populate filter dropdowns ---------- */
@@ -262,6 +868,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderBroker();
   renderTools();
   renderExports();
+
+  setupSecurityModal();
+  setupBrokerSearch();
+  setupExportButtons();
+  setupExportPage();
 
   // Load chart + filter modules
   if (window.renderAllCharts) window.renderAllCharts(state);
